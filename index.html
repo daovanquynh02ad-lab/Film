@@ -3,561 +3,528 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>КиноЗал: Secure Stream</title>
+    <title>Google Meet: Ultra HD Cinema</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@400;500&display=swap');
         
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: #050505;
-            color: #e5e5e5;
-            overflow: hidden; /* Prevent scrolling during cinema mode */
-        }
-
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #111;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #333;
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #555;
-        }
-
-        .glass-panel {
-            background: rgba(20, 20, 20, 0.7);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-        }
-
-        .video-container {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            background: #000;
-            border-radius: 12px;
+            font-family: 'Google Sans', 'Roboto', sans-serif;
+            background-color: #202124; /* Google Meet Background */
+            color: #e8eaed;
             overflow: hidden;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
-            transition: all 0.3s ease;
         }
 
+        /* Utils */
+        .icon-btn {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .icon-btn:hover {
+            background-color: rgba(232, 234, 237, 0.1);
+        }
+        .icon-btn.active {
+            background-color: #ea4335; /* Google Red */
+            color: white;
+            border-color: transparent;
+        }
+        .icon-btn.active:hover {
+            background-color: #d93025;
+        }
+        
+        /* Video Elements */
         video {
             width: 100%;
             height: 100%;
-            object-fit: contain; /* Preserve aspect ratio for movies */
-        }
-
-        /* The small PIP video (Self or Partner face) */
-        .pip-video {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            width: 200px;
-            height: 120px;
-            background: #1a1a1a;
-            border-radius: 8px;
-            border: 1px solid rgba(255,255,255,0.1);
-            z-index: 20;
-            overflow: hidden;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            transition: all 0.3s ease;
-            cursor: pointer;
+            object-fit: contain;
+            border-radius: 12px;
         }
         
-        .pip-video:hover {
-            transform: scale(1.05);
-            border-color: rgba(255,255,255,0.3);
+        .pip-container {
+            position: absolute;
+            bottom: 24px;
+            right: 24px;
+            width: 280px;
+            height: 160px;
+            background: #3c4043;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 2px 6px 2px rgba(60,64,67,0.15);
+            transition: all 0.3s ease;
+            z-index: 50;
+        }
+        
+        .pip-container video {
+            object-fit: cover;
+            transform: scaleX(-1); /* Mirror effect for self */
         }
 
-        .pip-video video {
-            object-fit: cover; /* Crop face video to fill */
+        .main-stage {
+            height: calc(100vh - 80px); /* Subtract footer height */
+            padding: 16px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
-        .btn-control {
-            transition: all 0.2s;
-        }
-        .btn-control:active {
-            transform: scale(0.95);
+        .main-video-wrapper {
+            width: 100%;
+            height: 100%;
+            background: #000; /* Black bars for cinema */
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
         }
 
-        .hidden-ui {
-            opacity: 0;
+        /* UI Overlays */
+        .badge {
+            position: absolute;
+            bottom: 12px;
+            left: 12px;
+            background: rgba(0,0,0,0.6);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            color: white;
             pointer-events: none;
         }
 
-        /* Loading Spinner */
-        .loader {
-            border: 3px solid rgba(255,255,255,0.1);
-            border-left-color: #6366f1;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            animation: spin 1s linear infinite;
+        .loading-pulse {
+            animation: pulse-ring 2s infinite;
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        /* Status Indicator */
-        .status-dot {
-            height: 8px;
-            width: 8px;
-            border-radius: 50%;
-            display: inline-block;
+        @keyframes pulse-ring {
+            0% { box-shadow: 0 0 0 0 rgba(26, 115, 232, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(26, 115, 232, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(26, 115, 232, 0); }
         }
-        .status-online { background-color: #10b981; box-shadow: 0 0 8px #10b981; }
-        .status-offline { background-color: #ef4444; }
-        .status-connecting { background-color: #f59e0b; animation: pulse 1.5s infinite; }
 
-        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+        /* Modal */
+        .meet-modal {
+            background: #ffffff;
+            color: #202124;
+            border-radius: 28px; /* Material 3 style */
+        }
     </style>
 </head>
-<body class="h-screen flex flex-col">
+<body class="flex flex-col h-screen">
 
-    <!-- Navbar / Header -->
-    <header id="navbar" class="h-16 border-b border-white/10 flex items-center justify-between px-6 bg-black/50 backdrop-blur-md z-50 transition-opacity duration-300">
-        <div class="flex items-center gap-3">
-            <div class="bg-indigo-600 p-1.5 rounded-lg">
-                <i data-lucide="film" class="w-5 h-5 text-white"></i>
-            </div>
-            <h1 class="font-semibold text-lg tracking-wide">Secure<span class="text-indigo-400">Cinema</span></h1>
-        </div>
-        
-        <div class="flex items-center gap-4">
-            <div id="connectionStatus" class="text-xs font-mono text-gray-400 flex items-center gap-2">
-                <span class="status-dot status-offline" id="statusDot"></span>
-                <span id="statusText">Ожидание...</span>
-            </div>
-            <button onclick="toggleCinemaMode()" class="p-2 hover:bg-white/10 rounded-full transition-colors text-gray-300" title="Режим кинотеатра (Скрыть интерфейс)">
-                <i data-lucide="maximize" class="w-5 h-5"></i>
-            </button>
-        </div>
-    </header>
-
-    <!-- Main Content -->
-    <main class="flex-1 flex relative">
-        
-        <!-- Welcome / Login Screen -->
-        <div id="lobbyScreen" class="absolute inset-0 z-40 flex items-center justify-center bg-black/90 backdrop-blur-sm transition-opacity duration-500">
-            <div class="glass-panel p-8 rounded-2xl w-full max-w-md mx-4 shadow-2xl relative overflow-hidden">
-                <!-- Decorative background blob -->
-                <div class="absolute -top-20 -right-20 w-64 h-64 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
-
-                <div class="relative z-10">
-                    <h2 class="text-2xl font-bold mb-2">Начать просмотр</h2>
-                    <p class="text-gray-400 text-sm mb-6">Зашифрованный P2P канал для фильмов и общения.</p>
-
-                    <!-- Tabs -->
-                    <div class="flex p-1 bg-white/5 rounded-xl mb-6">
-                        <button onclick="switchTab('create')" id="tabCreate" class="flex-1 py-2 text-sm font-medium rounded-lg bg-indigo-600 text-white shadow transition-all">Создать комнату</button>
-                        <button onclick="switchTab('join')" id="tabJoin" class="flex-1 py-2 text-sm font-medium rounded-lg text-gray-400 hover:text-white transition-all">Войти</button>
-                    </div>
-
-                    <!-- Create Room Section -->
-                    <div id="createSection" class="space-y-4">
-                        <div class="bg-black/30 p-4 rounded-xl border border-white/5 text-center">
-                            <p class="text-xs text-gray-500 mb-2 uppercase tracking-wider">Ваш ID (отправьте это другу)</p>
-                            <div class="flex items-center gap-2 justify-center">
-                                <span id="myIdDisplay" class="font-mono text-xl text-indigo-300 select-all cursor-pointer">Генерация...</span>
-                                <button onclick="copyId()" class="p-2 hover:bg-white/10 rounded-lg transition-colors">
-                                    <i data-lucide="copy" class="w-4 h-4 text-gray-300"></i>
-                                </button>
+    <!-- Pre-call / Lobby -->
+    <div id="lobby" class="absolute inset-0 z-50 bg-[#202124] flex items-center justify-center">
+        <div class="flex flex-col md:flex-row max-w-5xl w-full p-8 items-center gap-12">
+            
+            <!-- Left: Hero Text -->
+            <div class="flex-1 space-y-6">
+                <h1 class="text-4xl md:text-5xl font-normal leading-tight text-white">
+                    Видеовстречи премиум-качества. <br>
+                    <span class="text-[#8ab4f8]">Бесплатно для всех.</span>
+                </h1>
+                <p class="text-[#9aa0a6] text-lg">
+                    Мы используем P2P ускоритель для достижения 1080p/60fps. Идеально для совместного просмотра кино.
+                </p>
+                
+                <div class="flex flex-col gap-4 mt-8">
+                    <div class="flex items-center gap-3">
+                        <button onclick="createRoom()" class="bg-[#1a73e8] hover:bg-[#1967d2] text-white px-6 py-3 rounded-md font-medium flex items-center gap-2 transition-colors shadow-lg">
+                            <span class="material-icons-round text-xl">video_call</span>
+                            Новая встреча
+                        </button>
+                        
+                        <div class="relative flex-1 max-w-xs">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <span class="material-icons-round text-gray-500">keyboard</span>
                             </div>
+                            <input type="text" id="joinIdInput" placeholder="Введите код или ссылку" 
+                                class="w-full bg-transparent border border-[#5f6368] text-white rounded-md py-3 pl-10 pr-4 focus:outline-none focus:border-[#8ab4f8] focus:ring-1 focus:ring-[#8ab4f8] transition-all">
                         </div>
-                        <p class="text-center text-xs text-gray-500">Ожидайте подключения партнера...</p>
-                    </div>
-
-                    <!-- Join Room Section -->
-                    <div id="joinSection" class="space-y-4 hidden">
-                        <div>
-                            <label class="block text-xs text-gray-500 mb-1.5 uppercase tracking-wider">ID комнаты</label>
-                            <input type="text" id="remoteIdInput" placeholder="Вставьте ID партнера" class="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition-colors font-mono">
-                        </div>
-                        <button onclick="connectToPeer()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2">
-                            <span>Подключиться</span>
-                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        <button onclick="joinRoom()" class="text-[#8ab4f8] font-medium hover:bg-[#202124] px-4 py-3 rounded hover:bg-[#303134] transition-colors">
+                            Присоединиться
                         </button>
                     </div>
                 </div>
+
+                <div id="statusMsg" class="h-6 text-[#1a73e8] text-sm font-medium"></div>
+            </div>
+
+            <!-- Right: Preview -->
+            <div class="relative w-full max-w-md aspect-video bg-[#3c4043] rounded-2xl overflow-hidden shadow-2xl border border-[#5f6368]">
+                <video id="previewVideo" autoplay muted playsinline class="w-full h-full object-cover transform -scale-x-100"></video>
+                <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-4">
+                    <button onclick="togglePreviewAudio()" id="prevAudioBtn" class="w-12 h-12 rounded-full border border-[#5f6368] bg-[#3c4043] flex items-center justify-center hover:bg-[#45484c] text-white transition-colors">
+                        <span class="material-icons-round text-xl">mic</span>
+                    </button>
+                    <button onclick="togglePreviewVideo()" id="prevVideoBtn" class="w-12 h-12 rounded-full border border-[#5f6368] bg-[#3c4043] flex items-center justify-center hover:bg-[#45484c] text-white transition-colors">
+                        <span class="material-icons-round text-xl">videocam</span>
+                    </button>
+                </div>
+                <div class="absolute top-4 left-4 bg-black/50 px-3 py-1 rounded-full text-xs font-medium">Предпросмотр</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Call Interface -->
+    <div id="callInterface" class="hidden flex-col h-full w-full relative">
+        
+        <!-- Main Stage (Remote Video) -->
+        <div class="main-stage">
+            <div class="main-video-wrapper group">
+                <!-- Waiting State -->
+                <div id="waitingUi" class="absolute inset-0 flex flex-col items-center justify-center text-[#9aa0a6] z-10">
+                    <div class="w-24 h-24 rounded-full bg-[#3c4043] flex items-center justify-center mb-4 loading-pulse">
+                        <span class="material-icons-round text-4xl">person_outline</span>
+                    </div>
+                    <p class="text-xl">Ожидание собеседника...</p>
+                    <p class="text-sm mt-2 font-mono bg-[#3c4043] px-3 py-1 rounded select-all cursor-pointer" onclick="copyId()" id="roomIdDisplay">Загрузка ID...</p>
+                    <p class="text-xs mt-2 text-[#5f6368]">Нажмите на код, чтобы скопировать</p>
+                </div>
+
+                <video id="remoteVideo" autoplay playsinline class="relative z-20"></video>
+                <div class="badge z-30 group-hover:opacity-100 transition-opacity" id="remoteBadge">Собеседник</div>
             </div>
         </div>
 
-        <!-- Main Video Area -->
-        <div class="w-full h-full p-4 flex flex-col gap-4 justify-center items-center relative">
-            
-            <!-- The Big Screen (Remote Stream or Screen Share) -->
-            <div class="video-container relative group">
-                <video id="remoteVideo" autoplay playsinline></video>
-                
-                <!-- Overlay message if no video -->
-                <div id="noVideoMsg" class="absolute inset-0 flex flex-col items-center justify-center text-gray-600">
-                    <i data-lucide="monitor-off" class="w-12 h-12 mb-4 opacity-50"></i>
-                    <p>Ожидание видеопотока...</p>
-                </div>
-            </div>
-
-            <!-- The PIP Screen (Local Stream) -->
-            <div class="pip-video group" id="localVideoContainer">
-                <video id="localVideo" autoplay playsinline muted></video>
-                <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <span class="text-xs font-medium text-white">Вы</span>
-                </div>
-            </div>
-
-            <!-- Controls Bar (Bottom) -->
-            <div id="controlsBar" class="absolute bottom-8 left-1/2 transform -translate-x-1/2 glass-panel px-6 py-3 rounded-full flex items-center gap-6 shadow-2xl z-30 transition-all duration-300">
-                
-                <button onclick="toggleAudio()" id="btnAudio" class="btn-control p-3 rounded-full bg-gray-700 hover:bg-gray-600 text-white relative group">
-                    <i data-lucide="mic" class="w-5 h-5"></i>
-                    <span class="absolute -top-10 left-1/2 -translate-x-1/2 bg-black text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Микрофон</span>
-                </button>
-
-                <button onclick="toggleVideo()" id="btnVideo" class="btn-control p-3 rounded-full bg-gray-700 hover:bg-gray-600 text-white relative group">
-                    <i data-lucide="video" class="w-5 h-5"></i>
-                    <span class="absolute -top-10 left-1/2 -translate-x-1/2 bg-black text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Камера</span>
-                </button>
-
-                <div class="w-px h-8 bg-white/10"></div>
-
-                <button onclick="startScreenShare()" id="btnShare" class="btn-control p-4 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 relative group">
-                    <i data-lucide="monitor-up" class="w-6 h-6"></i>
-                    <span class="absolute -top-10 left-1/2 -translate-x-1/2 bg-black text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Транслировать фильм</span>
-                </button>
-
-                <div class="w-px h-8 bg-white/10"></div>
-
-                <button onclick="endCall()" class="btn-control p-3 rounded-full bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/50 relative group">
-                    <i data-lucide="phone-off" class="w-5 h-5"></i>
-                    <span class="absolute -top-10 left-1/2 -translate-x-1/2 bg-black text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Отключиться</span>
-                </button>
-            </div>
-
+        <!-- Self View (PIP) -->
+        <div class="pip-container" id="localPip">
+            <video id="localVideoCall" autoplay muted playsinline></video>
+            <div class="absolute bottom-2 left-2 bg-black/50 px-2 py-0.5 rounded text-[10px] text-white font-medium">Вы</div>
         </div>
-    </main>
 
-    <!-- Logic -->
+        <!-- Bottom Control Bar -->
+        <div class="h-20 bg-[#202124] flex items-center justify-between px-6 shrink-0 relative z-50">
+            <!-- Left Info -->
+            <div class="flex items-center gap-4 min-w-[200px]">
+                <div class="text-white font-medium text-lg" id="clock">12:00</div>
+                <div class="w-px h-6 bg-[#5f6368]"></div>
+                <div class="text-[#e8eaed] text-sm font-medium truncate max-w-[150px]" id="codeDisplay">code-here</div>
+            </div>
+
+            <!-- Center Controls -->
+            <div class="flex items-center gap-3">
+                <!-- Mic -->
+                <button onclick="toggleCallAudio()" id="callMicBtn" class="icon-btn w-12 h-12 rounded-full bg-[#3c4043] text-white border border-[#5f6368] flex items-center justify-center hover:bg-[#484c50]" title="Микрофон">
+                    <span class="material-icons-round text-xl">mic</span>
+                </button>
+
+                <!-- Camera -->
+                <button onclick="toggleCallVideo()" id="callCamBtn" class="icon-btn w-12 h-12 rounded-full bg-[#3c4043] text-white border border-[#5f6368] flex items-center justify-center hover:bg-[#484c50]" title="Камера">
+                    <span class="material-icons-round text-xl">videocam</span>
+                </button>
+
+                <!-- Screen Share (Hero Feature) -->
+                <button onclick="toggleScreenShare()" id="shareBtn" class="icon-btn w-12 h-12 rounded-full bg-[#3c4043] text-white border border-[#5f6368] flex items-center justify-center hover:bg-[#484c50] ml-2" title="Трансляция экрана (HQ)">
+                    <span class="material-icons-round text-xl">present_to_all</span>
+                </button>
+
+                <!-- End Call -->
+                <button onclick="hangUp()" class="w-16 h-10 rounded-full bg-[#ea4335] text-white flex items-center justify-center hover:bg-[#d93025] ml-4 transition-colors">
+                    <span class="material-icons-round text-xl">call_end</span>
+                </button>
+            </div>
+
+            <!-- Right Info -->
+            <div class="flex items-center gap-4 justify-end min-w-[200px]">
+                 <button class="text-[#e8eaed] hover:bg-[#3c4043] p-2 rounded-full">
+                    <span class="material-icons-round text-xl">info_outline</span>
+                 </button>
+                 <button class="text-[#e8eaed] hover:bg-[#3c4043] p-2 rounded-full">
+                    <span class="material-icons-round text-xl">people_outline</span>
+                 </button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // --- Icons Init ---
-        lucide.createIcons();
+        // --- High Performance Config ---
+        // Force high bitrate SDP to prevent blurry video
+        const BANDWIDTH_LIMIT = 6000; // 6 Mbps
+
+        function hackSDP(sdp) {
+            // This function modifies the SDP text to force higher bitrates
+            let allowed = sdp;
+            if (allowed.includes("b=AS:")) {
+                // If bitrate line exists, replace it
+                allowed = allowed.replace(/b=AS:([0-9]+)/g, `b=AS:${BANDWIDTH_LIMIT}`);
+            } else {
+                // If not, add it for video
+                allowed = allowed.replace(/a=mid:video\r\n/g, `a=mid:video\r\nb=AS:${BANDWIDTH_LIMIT}\r\n`);
+            }
+            return allowed;
+        }
 
         // --- State ---
         let peer = null;
-        let currentCall = null;
+        let myId = null;
+        let conn = null; // Data connection (optional)
+        let call = null; // Media connection
         let localStream = null;
         let screenStream = null;
-        let isScreenSharing = false;
-        let myId = null;
+        let isSharing = false;
 
-        const el = {
-            lobby: document.getElementById('lobbyScreen'),
-            myIdDisplay: document.getElementById('myIdDisplay'),
-            remoteIdInput: document.getElementById('remoteIdInput'),
-            localVideo: document.getElementById('localVideo'),
+        // --- Elements ---
+        const ui = {
+            lobby: document.getElementById('lobby'),
+            callInterface: document.getElementById('callInterface'),
+            previewVideo: document.getElementById('previewVideo'),
+            localVideoCall: document.getElementById('localVideoCall'),
             remoteVideo: document.getElementById('remoteVideo'),
-            statusDot: document.getElementById('statusDot'),
-            statusText: document.getElementById('statusText'),
-            noVideoMsg: document.getElementById('noVideoMsg'),
-            btnAudio: document.getElementById('btnAudio'),
-            btnVideo: document.getElementById('btnVideo'),
-            navbar: document.getElementById('navbar'),
-            controls: document.getElementById('controlsBar'),
-            tabCreate: document.getElementById('tabCreate'),
-            tabJoin: document.getElementById('tabJoin'),
-            createSection: document.getElementById('createSection'),
-            joinSection: document.getElementById('joinSection')
+            joinInput: document.getElementById('joinIdInput'),
+            roomIdDisplay: document.getElementById('roomIdDisplay'),
+            codeDisplay: document.getElementById('codeDisplay'),
+            statusMsg: document.getElementById('statusMsg'),
+            waitingUi: document.getElementById('waitingUi'),
+            remoteBadge: document.getElementById('remoteBadge'),
+            btns: {
+                prevMic: document.getElementById('prevAudioBtn'),
+                prevCam: document.getElementById('prevVideoBtn'),
+                callMic: document.getElementById('callMicBtn'),
+                callCam: document.getElementById('callCamBtn'),
+                share: document.getElementById('shareBtn')
+            }
         };
 
         // --- Initialization ---
-        
         async function init() {
-            // Request minimal audio/video to start (permission prompt)
+            updateClock();
+            setInterval(updateClock, 1000);
+            
+            // Get initial stream
             try {
-                localStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { width: { ideal: 640 }, height: { ideal: 480 } }, // Low res for face is fine
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true
-                    } 
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 1280, height: 720 }, // Good web cam quality
+                    audio: { echoCancellation: true, noiseSuppression: true }
                 });
-                el.localVideo.srcObject = localStream;
-            } catch (err) {
-                console.error("Camera access denied or error:", err);
-                alert("Пожалуйста, разрешите доступ к камере и микрофону для звонка.");
+                
+                ui.previewVideo.srcObject = localStream;
+                ui.localVideoCall.srcObject = localStream; // Ready for call
+                
+            } catch (e) {
+                console.error("Media Error:", e);
+                alert("Нет доступа к камере/микрофону. Проверьте разрешения браузера.");
             }
 
             // Init PeerJS
-            peer = new Peer(null, {
-                debug: 2
-            });
-
+            peer = new Peer(null, { debug: 1 });
+            
             peer.on('open', (id) => {
                 myId = id;
-                el.myIdDisplay.innerText = id;
-                updateStatus('online', 'Готов к подключению');
+                console.log("My ID:", id);
             });
 
-            peer.on('call', (call) => {
-                // Incoming call
+            peer.on('call', (incomingCall) => {
                 if(confirm("Входящий звонок. Принять?")) {
-                    el.lobby.classList.add('hidden-ui'); // Hide lobby
-                    call.answer(localStream); // Answer with our AV stream
-                    handleCall(call);
+                    enterCallMode();
+                    // Answer the call, providing our mediaStream
+                    incomingCall.answer(localStream);
+                    handleCallStream(incomingCall);
                 }
             });
 
             peer.on('error', (err) => {
-                console.error(err);
-                updateStatus('offline', 'Ошибка соединения');
-                alert("Ошибка P2P: " + err.type);
+                ui.statusMsg.innerText = "Ошибка: " + err.type;
+                ui.statusMsg.classList.add('text-red-500');
             });
         }
 
-        function handleCall(call) {
-            currentCall = call;
-            updateStatus('connecting', 'Соединение...');
+        // --- Core Calling Logic ---
 
-            call.on('stream', (remoteStream) => {
-                updateStatus('online', 'Подключено (Зашифровано)');
-                el.remoteVideo.srcObject = remoteStream;
-                el.noVideoMsg.style.display = 'none';
-            });
-
-            call.on('close', () => {
-                endCallUI();
-            });
+        function createRoom() {
+            if(!myId) return alert("Инициализация сети... подождите пару секунд");
+            enterCallMode();
+            ui.roomIdDisplay.innerText = myId;
+            ui.codeDisplay.innerText = myId;
+            // Wait for incoming call logic handled in init()
         }
 
-        // --- User Actions ---
-
-        function connectToPeer() {
-            const remoteId = el.remoteIdInput.value.trim();
-            if (!remoteId) return alert("Введите ID партнера");
-
-            el.lobby.classList.add('hidden-ui');
-            const call = peer.call(remoteId, localStream);
-            handleCall(call);
-        }
-
-        function endCall() {
-            if (currentCall) currentCall.close();
-            if (screenStream) {
-                screenStream.getTracks().forEach(track => track.stop());
-            }
-            endCallUI();
-        }
-
-        function endCallUI() {
-            currentCall = null;
-            el.remoteVideo.srcObject = null;
-            el.noVideoMsg.style.display = 'flex';
-            el.lobby.classList.remove('hidden-ui');
-            updateStatus('online', 'Звонок завершен');
+        function joinRoom() {
+            const destId = ui.joinInput.value.trim();
+            if(!destId) return alert("Введите ID");
             
-            // Stop screen share if active
-            if(isScreenSharing) stopScreenShare();
+            enterCallMode();
+            ui.roomIdDisplay.innerText = "Подключение...";
+            ui.codeDisplay.innerText = destId;
+
+            // Call peer
+            // NOTE: We do NOT modify SDP here directly in PeerJS easily, 
+            // but we ensure we send high quality stream request later
+            const outgoingCall = peer.call(destId, localStream);
+            handleCallStream(outgoingCall);
         }
 
-        // --- Screen Sharing Logic (The "Cinema" Part) ---
+        function handleCallStream(currentCall) {
+            call = currentCall;
+
+            // Wait for stream
+            call.on('stream', (remoteStream) => {
+                console.log("Stream received");
+                ui.waitingUi.classList.add('hidden'); // Hide waiting text
+                ui.remoteVideo.srcObject = remoteStream;
+            });
+
+            // Handle errors/close
+            call.on('close', () => hangUp());
+            call.on('error', () => hangUp());
+            
+            // Attempt to hack SDP for bitrate when negotiating
+            // PeerJS hides the RTCPeerConnection, but we can access it via call.peerConnection
+            const pc = call.peerConnection;
+            
+            // Modern WebRTC bitrate forcing is complex, often requires "mangling" SDP 
+            // before settingLocalDescription. PeerJS handles this internally.
+            // However, we can use RTCRtpSender.setParameters if supported to set maxBitrate dynamically
+            
+            // Try to boost bandwidth every 2 seconds
+            setInterval(() => {
+                if(pc && pc.getSenders) {
+                    pc.getSenders().forEach(sender => {
+                        if(sender.track && sender.track.kind === 'video') {
+                            const params = sender.getParameters();
+                            if(!params.encodings) params.encodings = [{}];
+                            // Force 6mbps
+                            params.encodings[0].maxBitrate = 6000000; 
+                            sender.setParameters(params).catch(e => {}); 
+                        }
+                    });
+                }
+            }, 2000);
+        }
+
+        function enterCallMode() {
+            ui.lobby.classList.add('hidden');
+            ui.callInterface.classList.remove('hidden');
+            ui.callInterface.classList.add('flex');
+        }
+
+        function hangUp() {
+            if(call) call.close();
+            if(isSharing) stopSharing();
+            location.reload(); // Simple reset
+        }
+
+        // --- Media Control (The Fix) ---
+
+        function toggleTrack(kind, btnId, iconOn, iconOff) {
+            if(!localStream) return;
+            const track = kind === 'video' ? localStream.getVideoTracks()[0] : localStream.getAudioTracks()[0];
+            
+            if(track) {
+                track.enabled = !track.enabled;
+                const btn = document.getElementById(btnId);
+                const isActive = !track.enabled; // If disabled, button is "Active" (Red)
+                
+                if(isActive) {
+                    btn.classList.add('active');
+                    btn.querySelector('span').innerText = iconOff;
+                } else {
+                    btn.classList.remove('active');
+                    btn.querySelector('span').innerText = iconOn;
+                }
+            }
+        }
+
+        // Preview Toggles
+        window.togglePreviewAudio = () => toggleTrack('audio', 'prevAudioBtn', 'mic', 'mic_off');
+        window.togglePreviewVideo = () => toggleTrack('video', 'prevVideoBtn', 'videocam', 'videocam_off');
         
-        async function startScreenShare() {
-            if (!currentCall) return alert("Сначала подключитесь к партнеру!");
-            if (isScreenSharing) {
-                stopScreenShare();
+        // Call Toggles
+        window.toggleCallAudio = () => toggleTrack('audio', 'callMicBtn', 'mic', 'mic_off');
+        window.toggleCallVideo = () => toggleTrack('video', 'callCamBtn', 'videocam', 'videocam_off');
+
+        // --- Screen Share Logic (Nitro Quality) ---
+
+        async function toggleScreenShare() {
+            if(!call) return alert("Сначала начните звонок");
+            
+            if(isSharing) {
+                stopSharing();
                 return;
             }
 
             try {
-                // IMPORTANT: Request high quality and audio
+                // FORCE 1080p 60FPS constraints
                 screenStream = await navigator.mediaDevices.getDisplayMedia({
                     video: {
-                        cursor: "always",
-                        displaySurface: "browser", // Prefer browser tab for movies
-                        width: { ideal: 1920, max: 2560 }, // Aim high
+                        width: { ideal: 1920, max: 2560 }, // Ask for 2K, settle for 1080p
                         height: { ideal: 1080, max: 1440 },
-                        frameRate: { ideal: 60 }
+                        frameRate: { ideal: 60, min: 30 }, // Force high framerate
+                        displaySurface: "browser", // Hint to browser
+                        cursor: "always"
                     },
                     audio: {
-                        echoCancellation: false, // Don't process movie audio
+                        echoCancellation: false,
                         noiseSuppression: false,
                         autoGainControl: false,
-                        channelCount: 2 // Stereo
+                        channelCount: 2 // Stereo sound
                     }
                 });
 
-                // Get the video track from screen share
-                const screenTrack = screenStream.getVideoTracks()[0];
-                const audioTracks = screenStream.getAudioTracks();
+                const videoTrack = screenStream.getVideoTracks()[0];
+                const audioTrack = screenStream.getAudioTracks()[0];
 
-                // Detect when user stops sharing via browser UI
-                screenTrack.onended = () => stopScreenShare();
+                // Handle User clicking "Stop sharing" in browser UI
+                videoTrack.onended = () => stopSharing();
 
-                // Logic to replace tracks in WebRTC
-                // We want to send Screen Video + Screen Audio (if available) + Mic Audio
-                // PeerJS simplifies things, but replacing tracks is specific.
-                
-                const sender = currentCall.peerConnection.getSenders().find((s) => s.track.kind === 'video');
-                
-                if (sender) {
-                    sender.replaceTrack(screenTrack);
+                const sender = call.peerConnection.getSenders().find(s => s.track.kind === 'video');
+                if(sender) {
+                    await sender.replaceTrack(videoTrack);
                 }
 
-                // If system audio was captured, we might want to mix it or replace mic. 
-                // For simplicity and quality, if system audio exists, we might prioritize it or try to add it.
-                // Note: Adding a new track renegotiates, which PeerJS handles sometimes poorly in v1.
-                // Strategy: We just replace the video. The mic audio stays.
-                // If the user checked "Share Audio", that audio usually comes attached to the stream.
-                // To Mix: Web Audio API is needed. To Keep Simple: We rely on the user's Mic capturing the room OR 
-                // we try to replace the audio track too if one exists in screen share.
-                
-                if (audioTracks.length > 0) {
-                   // User shared system audio. Let's try to switch to that for high quality movie sound.
-                   // The downside: They might not hear your voice clearly if you don't have a mixer.
-                   const audioSender = currentCall.peerConnection.getSenders().find((s) => s.track.kind === 'audio');
-                   if(audioSender) {
-                       audioSender.replaceTrack(audioTracks[0]); 
-                       // Hint: To talk, user might need to switch back, or we need a mixer.
-                       // For watching a movie, clean system audio is usually preferred over mic mix.
-                   }
+                // If audio exists, try to replace/add
+                if(audioTrack) {
+                    const audioSender = call.peerConnection.getSenders().find(s => s.track.kind === 'audio');
+                     if(audioSender) {
+                        await audioSender.replaceTrack(audioTrack);
+                     }
                 }
 
-                // Update UI (Local view shows screen too)
-                el.localVideo.srcObject = screenStream; // Show what I am sharing in the small box
-                el.localVideo.muted = true; // Don't hear myself
+                // UI Updates
+                ui.localVideoCall.srcObject = screenStream; // Show what we share in PIP
+                ui.btns.share.classList.add('text-[#8ab4f8]', 'bg-[#1a73e8]', 'bg-opacity-20'); // Highlight button
+                isSharing = true;
 
-                isScreenSharing = true;
-                document.getElementById('btnShare').classList.add('bg-red-600', 'hover:bg-red-700');
-                document.getElementById('btnShare').classList.remove('bg-indigo-600', 'hover:bg-indigo-500');
-
-            } catch (err) {
-                console.error("Screen share error:", err);
+            } catch(e) {
+                console.error("Share failed", e);
             }
         }
 
-        function stopScreenShare() {
-            if (!screenStream) return;
+        async function stopSharing() {
+            if(!screenStream) return;
             
-            // Stop tracks
-            screenStream.getTracks().forEach(track => track.stop());
+            screenStream.getTracks().forEach(t => t.stop());
             
-            // Revert video track to webcam
+            // Revert tracks to Webcam
             const videoTrack = localStream.getVideoTracks()[0];
             const audioTrack = localStream.getAudioTracks()[0];
             
-            const videoSender = currentCall.peerConnection.getSenders().find((s) => s.track.kind === 'video');
-            const audioSender = currentCall.peerConnection.getSenders().find((s) => s.track.kind === 'audio');
+            const sender = call.peerConnection.getSenders().find(s => s.track.kind === 'video');
+            const audioSender = call.peerConnection.getSenders().find(s => s.track.kind === 'audio');
             
-            if(videoSender) videoSender.replaceTrack(videoTrack);
-            if(audioSender) audioSender.replaceTrack(audioTrack); // Restore mic
+            if(sender) await sender.replaceTrack(videoTrack);
+            if(audioSender) await audioSender.replaceTrack(audioTrack);
 
-            // Reset UI
-            el.localVideo.srcObject = localStream;
-            
-            isScreenSharing = false;
-            document.getElementById('btnShare').classList.remove('bg-red-600', 'hover:bg-red-700');
-            document.getElementById('btnShare').classList.add('bg-indigo-600', 'hover:bg-indigo-500');
-            
+            ui.localVideoCall.srcObject = localStream;
+            ui.btns.share.classList.remove('text-[#8ab4f8]', 'bg-[#1a73e8]', 'bg-opacity-20');
+            isSharing = false;
             screenStream = null;
         }
 
-        // --- UI Utils ---
-
-        function toggleAudio() {
-            const track = localStream.getAudioTracks()[0];
-            track.enabled = !track.enabled;
-            el.btnAudio.classList.toggle('bg-red-500', !track.enabled);
-            el.btnAudio.classList.toggle('bg-gray-700', track.enabled);
-            const icon = el.btnAudio.querySelector('i');
-            if(!track.enabled) { icon.setAttribute('data-lucide', 'mic-off'); }
-            else { icon.setAttribute('data-lucide', 'mic'); }
-            lucide.createIcons();
+        // --- Helpers ---
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').innerText = 
+                now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
         }
 
-        function toggleVideo() {
-            const track = localStream.getVideoTracks()[0];
-            track.enabled = !track.enabled;
-            el.btnVideo.classList.toggle('bg-red-500', !track.enabled);
-            el.btnVideo.classList.toggle('bg-gray-700', track.enabled);
-            const icon = el.btnVideo.querySelector('i');
-            if(!track.enabled) { icon.setAttribute('data-lucide', 'video-off'); }
-            else { icon.setAttribute('data-lucide', 'video'); }
-            lucide.createIcons();
-        }
+        window.copyId = () => {
+            navigator.clipboard.writeText(myId);
+            alert("ID скопирован");
+        };
 
-        function toggleCinemaMode() {
-            el.navbar.classList.toggle('opacity-0');
-            el.navbar.classList.toggle('pointer-events-none');
-            
-            el.controls.classList.toggle('translate-y-24'); // Move down out of view
-            el.controls.classList.toggle('opacity-0');
-            
-            // Show controls again on mouse move
-            if(el.navbar.classList.contains('opacity-0')) {
-                 document.body.addEventListener('mousemove', tempShowControls);
-            } else {
-                 document.body.removeEventListener('mousemove', tempShowControls);
-            }
-        }
-        
-        let mouseTimer;
-        function tempShowControls() {
-            el.navbar.classList.remove('opacity-0', 'pointer-events-none');
-            el.controls.classList.remove('translate-y-24', 'opacity-0');
-            
-            clearTimeout(mouseTimer);
-            mouseTimer = setTimeout(() => {
-                if(currentCall) { // Only hide if in a call
-                    el.navbar.classList.add('opacity-0', 'pointer-events-none');
-                    el.controls.classList.add('translate-y-24', 'opacity-0');
-                }
-            }, 3000);
-        }
-
-        function switchTab(tab) {
-            if(tab === 'create') {
-                el.tabCreate.classList.replace('text-gray-400', 'text-white');
-                el.tabCreate.classList.replace('bg-transparent', 'bg-indigo-600');
-                el.tabCreate.classList.add('shadow');
-                
-                el.tabJoin.classList.replace('text-white', 'text-gray-400');
-                el.tabJoin.classList.replace('bg-indigo-600', 'bg-transparent');
-                el.tabJoin.classList.remove('shadow');
-
-                el.createSection.classList.remove('hidden');
-                el.joinSection.classList.add('hidden');
-            } else {
-                el.tabJoin.classList.replace('text-gray-400', 'text-white');
-                el.tabJoin.classList.replace('bg-transparent', 'bg-indigo-600');
-                el.tabJoin.classList.add('shadow');
-
-                el.tabCreate.classList.replace('text-white', 'text-gray-400');
-                el.tabCreate.classList.replace('bg-indigo-600', 'bg-transparent');
-                el.tabCreate.classList.remove('shadow');
-
-                el.joinSection.classList.remove('hidden');
-                el.createSection.classList.add('hidden');
-            }
-        }
-
-        function copyId() {
-            navigator.clipboard.writeText(myId).then(() => {
-                alert("ID скопирован в буфер обмена!");
-            });
-        }
-
-        function updateStatus(status, text) {
-            el.statusText.innerText = text;
-            el.statusDot.className = 'status-dot'; // reset
-            el.statusDot.classList.add(`status-${status}`);
-        }
-
-        // Start
+        // Run
         init();
 
     </script>
