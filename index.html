@@ -12,48 +12,61 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root { 
-            --sab: env(safe-area-inset-bottom); 
-            --navbar-height: 85px;
+            --sab: env(safe-area-inset-bottom);
+            --sat: env(safe-area-inset-top);
+        }
+        html, body { 
+            height: 100%; 
+            margin: 0; 
+            padding: 0; 
+            background-color: #F2F2F7;
+            -webkit-overflow-scrolling: touch;
         }
         body { 
             font-family: 'Inter', sans-serif; 
-            background-color: #F2F2F7; 
-            color: #1C1C1E; 
             overflow: hidden; 
-            height: 100dvh;
-            margin: 0;
+            position: fixed;
+            width: 100%;
         }
         .apple-blur { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); background: rgba(255, 255, 255, 0.85); }
         
-        /* Фикс карточки: уменьшил высоту, чтобы точно влезло над кнопками */
-        .card-container { perspective: 1000px; height: 35vh; max-height: 320px; width: 100%; }
-        .card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.4s ease-out; transform-style: preserve-3d; }
-        .card-flipped { transform: rotateY(180deg); }
-        .card-face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 24px; display: flex; align-items: center; justify-content: center; text-align: center; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); border: 1px solid rgba(0,0,0,0.05); }
-        .card-face-front { background: white; }
-        .card-face-back { transform: rotateY(180deg); background: #F9F9FB; border-color: #007AFF; }
-        
-        /* Область контента с учетом высоты навигации */
-        .content-area { 
-            height: calc(100dvh - 140px - var(--navbar-height) - var(--sab)); 
-            overflow-y: auto; 
-            -webkit-overflow-scrolling: touch;
+        /* Главный контейнер на весь экран */
+        .app-wrapper {
+            display: flex;
+            flex-direction: column;
+            height: 100dvh;
         }
 
-        /* Нижняя панель: поднята выше и имеет четкий фон */
-        .tab-bar { 
+        /* Область контента: занимает всё место кроме шапки и таббара */
+        .content-scrollable {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-bottom: 120px; /* Запас под таббар */
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y;
+        }
+
+        /* Карточка */
+        .card-container { perspective: 1000px; height: 32vh; min-height: 280px; width: 100%; }
+        .card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.4s ease-out; transform-style: preserve-3d; }
+        .card-flipped { transform: rotateY(180deg); }
+        .card-face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 28px; display: flex; align-items: center; justify-content: center; text-align: center; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .card-front { background: white; }
+        .card-back { transform: rotateY(180deg); background: #F9F9FB; border: 2px solid #007AFF; }
+        
+        /* Таббар */
+        .bottom-nav {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
-            height: calc(var(--navbar-height) + var(--sab));
-            padding-bottom: var(--sab);
-            display: flex;
-            justify-content: space-around;
-            align-items: flex-start;
-            padding-top: 12px;
-            z-index: 50;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
             border-top: 1px solid rgba(0,0,0,0.1);
+            padding-bottom: calc(10px + var(--sab));
+            padding-top: 10px;
+            z-index: 100;
         }
 
         @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
@@ -67,7 +80,7 @@
         const { useState, useEffect, useMemo, useCallback } = React;
 
         const RAW_DATA = [
-            {e:"A sharp edge",r:"Острый край"},{e:"Adult",r:"Взрослый"},{e:"Bicuspid",r:"Премоляр"},{e:"Bony substance",r:"Костное вещество"},{e:"Bulk",r:"Основная масса"},{e:"Canine",r:"Клык"},{e:"Chamber",r:"Камера"},{e:"Crown",r:"Коронка"},{e:"Cement",r:"Цемент"},{e:"Chisel-shaped",r:"Долотообразный"},{e:"Cusp",r:"Острый кончик зуба"},{e:"Cuspid",r:"Клык (Cuspid)"},{e:"Dental tissues",r:"Зубная ткань"},{e:"Dentine",r:"Дентин"},{e:"Enamel",r:"Эмаль"},{e:"Eye-tooth",r:"Верхний клык"},{e:"Foramen",r:"Отверстие"},{e:"Gum",r:"Десна"},{e:"Identical",r:"Идентичный"},{e:"Incisor",r:"Резец"},{e:"Lower jaw",r:"Нижняя челюсть"},{e:"Molar",r:"Моляр"},{e:"Neck",r:"Шейка"},{e:"Peg-shaped",r:"Клиновидный"},{e:"Periodontal membrane",r:"Периодонт"},{e:"Premolar",r:"Премоляр"},{e:"Pulp",r:"Пульпа"},{e:"Root",r:"Корень"},{e:"Root canal",r:"Корневой канал"},{e:"Saliva",r:"Слюна"},{e:"Shape",r:"Форма"},{e:"Socket",r:"Ячейка"},{e:"Tip",r:"Кончик"},{e:"To chew",r:"Жевать"},{e:"To cut",r:"Разрезать"},{e:"To grind",r:"Молоть/Размалывать"},{e:"To maintain",r:"Поддерживать"},{e:"To mash",r:"Дробить"},{e:"To occur",r:"Случаться"},{e:"To refer to",r:"Сослаться"},{e:"To shred",r:"Крошить"},{e:"To tear",r:"Разрывать (Гл.)"},{e:"Tooth",r:"Зуб"},{e:"Tubercule",r:"Бугорок"},{e:"Upper jaw",r:"Верхняя челюсть"},{e:"Wisdom tooth",r:"Зуб мудрости"},{e:"Amount",r:"Количество"},{e:"Attachment",r:"Прикрепление"},{e:"Beyond the border",r:"Ниже/выше границы"},{e:"Supporting tissues",r:"Поддерживающие ткани"},{e:"Suspensory mechanism",r:"Поддерживающий механизм"},{e:"Exposed tissues",r:"Незащищенные ткани"},{e:"Fibrous tissues",r:"Волокнистые ткани"},{e:"Friction",r:"Трение"},{e:"To fasten",r:"Прикреплять"},{e:"To increase",r:"Увеличивать"},{e:"To overlap",r:"Перекрывать"},{e:"To resemble",r:"Напоминать"},{e:"To surround",r:"Окружать"},{e:"To swallow",r:"Глотать"},{e:"To wear",r:"Изнашивать"},{e:"Masticatory",r:"Жевательный"},{e:"Palatal",r:"Небный"},{e:"Pharynx",r:"Глотка"},{e:"To be located",r:"Быть расположенным"},{e:"To comprise",r:"Включать"},{e:"To develop",r:"Развиваться"},{e:"To grow",r:"Расти"},{e:"To include",r:"Включать (include)"},{e:"To line",r:"Выстилать"},{e:"To observe",r:"Наблюдать"},{e:"To separate",r:"Разделять"},{e:"To support",r:"Поддерживать (support)"},{e:"Undergo",r:"Подвергаться"},{e:"Chewing",r:"Жевание"},{e:"Deglutition",r:"Глотание"},{e:"Dentition",r:"Зубной ряд"},{e:"Edge",r:"Край"},{e:"Insalivation",r:"Смачивание слюной"},{e:"Oropharynx",r:"Ротоглотка"},{e:"Pharyngeal cavity",r:"Гортанно-глоточная полость"},{e:"Respiration",r:"Дыхание"},{e:"Space",r:"Пространство"},{e:"Tear (noun)",r:"Разрыв (сущ.)"},{e:"To be subjected to",r:"Подвергаться (subject)"},{e:"To extend",r:"Простираться"},{e:"A bite (occlusion)",r:"Прикус"},{e:"A set",r:"Ряд, комплект"},{e:"Crooked",r:"Изогнутый"},{e:"Crowded",r:"Скученный"},{e:"Deciduous teeth",r:"Молочные зубы"},{e:"Dental arch",r:"Зубная дуга"},{e:"Eruption",r:"Прорезывание"},{e:"Impacted",r:"Ретинированный"},{e:"Keystone",r:"Краеугольный камень"},{e:"Permanent teeth",r:"Постоянные зубы"},{e:"Rate",r:"Скорость"},{e:"Replace",r:"Замещать"},{e:"To come in",r:"Прорезываться (in)"},{e:"To come through",r:"Прорезываться (through)"},{e:"To delay",r:"Задерживать"},{e:"To dissolve",r:"Рассасываться"},{e:"To erupt",r:"Прорезываться (erupt)"},{e:"To extract",r:"Удалять (зуб)"},{e:"To fall out",r:"Выпадать"},{e:"To loosen",r:"Расшатываться"},{e:"Tooth bud",r:"Зубной зачаток"},{e:"Boundary",r:"Граница"},{e:"Fissure",r:"Фиссура"},{e:"Something like",r:"Что-то вроде"},{e:"The floor of the orbita",r:"Основание глазницы"},{e:"The nares",r:"Носовая полость"},{e:"To bound",r:"Ограничивать"},{e:"To enter into formatting",r:"Принимать участие в формировании"},{e:"To protrude",r:"Выступать"},{e:"Draw a tooth",r:"Вырвать зуб"},{e:"Barber",r:"Парикмахер"},{e:"Condyloid process",r:"Мыщелковый отросток"},{e:"Mandibular notch",r:"Нижнечелюстная вырезка"},{e:"Coronoid process",r:"Венечный отросток"},{e:"Mental foramen",r:"Подбородочное отверстие"},{e:"Outer surface",r:"Наружная поверхность"},{e:"Inner surface",r:"Внутренняя поверхность"},{e:"Periodontal ligament",r:"Периодонтальная связка"},{e:"Oral mucosa",r:"Слизистая рта"},{e:"Dentistry",r:"Стоматология"},{e:"Tooth decay",r:"Кариес"},{e:"To diagnose",r:"Диагностировать"},{e:"To prevent",r:"Предотвращать"},{e:"To estimate",r:"Оценивать"},{e:"Dentures",r:"Протезы"},{e:"To perform",r:"Выполнять"},{e:"Prosthodontics",r:"Ортопедическая стоматология"},{e:"Orthodontics",r:"Ортодонтия"},{e:"Conservation",r:"Консервативное лечение"},{e:"Oral surgery",r:"Хирургическая стоматология"},{e:"To provide",r:"Предоставлять"},{e:"To involve",r:"Вовлекать"},{e:"To carry out",r:"Осуществлять"},{e:"Molar (v2)",r:"Моляр (тип 2)"},{e:"Pulp (v2)",r:"Пульпа (тип 2)"},{e:"Socket (v2)",r:"Ячейка (тип 2)"},{e:"To maintain (v2)",r:"Поддерживать (тип 2)"},{e:"To tear (v2)",r:"Разрывать (тип 2)"},{e:"Amount (v2)",r:"Количество (тип 2)"},{e:"Dental tissues (v2)",r:"Зубные ткани (тип 2)"},{e:"To increase (v2)",r:"Увеличивать (тип 2)"},{e:"To wear (v2)",r:"Изнашивать (тип 2)"}
+            {e:"A sharp edge",r:"Острый край"},{e:"Adult",r:"Взрослый"},{e:"Bicuspid",r:"Премоляр"},{e:"Bony substance",r:"Костное вещество"},{e:"Bulk",r:"Основная масса"},{e:"Canine",r:"Клык"},{e:"Chamber",r:"Камера"},{e:"Crown",r:"Коронка"},{e:"Cement",r:"Цемент"},{e:"Chisel-shaped",r:"Долотообразный"},{e:"Cusp",r:"Острый кончик зуба"},{e:"Cuspid",r:"Клык"},{e:"Dental tissues",r:"Зубная ткань"},{e:"Dentine",r:"Дентин"},{e:"Enamel",r:"Эмаль"},{e:"Eye-tooth",r:"Верхний клык"},{e:"Foramen",r:"Отверстие"},{e:"Gum",r:"Десна"},{e:"Identical",r:"Идентичный"},{e:"Incisor",r:"Резец"},{e:"Lower jaw",r:"Нижняя челюсть"},{e:"Molar",r:"Моляр"},{e:"Neck",r:"Шейка"},{e:"Peg-shaped",r:"Клиновидный"},{e:"Periodontal membrane",r:"Периодонт"},{e:"Premolar",r:"Премоляр"},{e:"Pulp",r:"Пульпа"},{e:"Root",r:"Корень"},{e:"Root canal",r:"Корневой канал"},{e:"Saliva",r:"Слюна"},{e:"Shape",r:"Форма"},{e:"Socket",r:"Ячейка"},{e:"Tip",r:"Кончик"},{e:"To chew",r:"Жевать"},{e:"To cut",r:"Разрезать"},{e:"To grind",r:"Молоть/Размалывать"},{e:"To maintain",r:"Поддерживать"},{e:"To mash",r:"Дробить"},{e:"To occur",r:"Случаться"},{e:"To refer to",r:"Сослаться"},{e:"To shred",r:"Крошить"},{e:"To tear",r:"Разрывать (Гл.)"},{e:"Tooth",r:"Зуб"},{e:"Tubercule",r:"Бугорок"},{e:"Upper jaw",r:"Верхняя челюсть"},{e:"Wisdom tooth",r:"Зуб мудрости"},{e:"Amount",r:"Количество"},{e:"Attachment",r:"Прикрепление"},{e:"Beyond the border",r:"Ниже/выше границы"},{e:"Supporting tissues",r:"Поддерживающие ткани"},{e:"Suspensory mechanism",r:"Поддерживающий механизм"},{e:"Exposed tissues",r:"Незащищенные ткани"},{e:"Fibrous tissues",r:"Волокнистые ткани"},{e:"Friction",r:"Трение"},{e:"To fasten",r:"Прикреплять"},{e:"To increase",r:"Увеличивать"},{e:"To overlap",r:"Перекрывать"},{e:"To resemble",r:"Напоминать"},{e:"To surround",r:"Окружать"},{e:"To swallow",r:"Глотать"},{e:"To wear",r:"Изнашивать"},{e:"Masticatory",r:"Жевательный"},{e:"Palatal",r:"Небный"},{e:"Pharynx",r:"Глотка"},{e:"To be located",r:"Быть расположенным"},{e:"To comprise",r:"Включать"},{e:"To develop",r:"Развиваться"},{e:"To grow",r:"Расти"},{e:"To include",r:"Включать"},{e:"To line",r:"Выстилать"},{e:"To observe",r:"Наблюдать"},{e:"To separate",r:"Разделять"},{e:"To support",r:"Поддерживать"},{e:"Undergo",r:"Подвергаться"},{e:"Chewing",r:"Жевание"},{e:"Deglutition",r:"Глотание"},{e:"Dentition",r:"Зубной ряд"},{e:"Edge",r:"Край"},{e:"Insalivation",r:"Смачивание слюной"},{e:"Oropharynx",r:"Ротоглотка"},{e:"Pharyngeal cavity",r:"Гортанно-глоточная полость"},{e:"Respiration",r:"Дыхание"},{e:"Space",r:"Пространство"},{e:"Tear",r:"Разрыв"},{e:"To be subjected to",r:"Подвергаться (subj)"},{e:"To extend",r:"Простираться"},{e:"A bite (occlusion)",r:"Прикус"},{e:"A set",r:"Ряд, комплект"},{e:"Crooked",r:"Изогнутый"},{e:"Crowded",r:"Скученный"},{e:"Deciduous teeth",r:"Молочные зубы"},{e:"Dental arch",r:"Зубная дуга"},{e:"Eruption",r:"Прорезывание"},{e:"Impacted",r:"Ретинированный"},{e:"Keystone",r:"Краеугольный камень"},{e:"Permanent teeth",r:"Постоянные зубы"},{e:"Rate",r:"Скорость"},{e:"Replace",r:"Замещать"},{e:"To come in",r:"Прорезываться (in)"},{e:"To come through",r:"Прорезываться (through)"},{e:"To delay",r:"Задерживать"},{e:"To dissolve",r:"Рассасываться"},{e:"To erupt",r:"Прорезываться (erupt)"},{e:"To extract",r:"Удалять"},{e:"To fall out",r:"Выпадать"},{e:"To loosen",r:"Расшатываться"},{e:"Tooth bud",r:"Зубной зачаток"},{e:"Boundary",r:"Граница"},{e:"Fissure",r:"Фиссура"},{e:"Something like",r:"Что-то вроде"},{e:"The floor of the orbita",r:"Основание глазницы"},{e:"The nares",r:"Носовая полость"},{e:"To bound",r:"Ограничивать"},{e:"To enter formatting",r:"Формирование"},{e:"To protrude",r:"Выступать"},{e:"Draw a tooth",r:"Вырвать зуб"},{e:"Barber",r:"Парикмахер"},{e:"Condyloid process",r:"Мыщелковый отросток"},{e:"Mandibular notch",r:"Нижнечелюстная вырезка"},{e:"Coronoid process",r:"Венечный отросток"},{e:"Mental foramen",r:"Подбородочное отверстие"},{e:"Outer surface",r:"Наружная поверхность"},{e:"Inner surface",r:"Внутренняя поверхность"},{e:"Periodontal ligament",r:"Периодонтальная связка"},{e:"Oral mucosa",r:"Слизистая рта"},{e:"Dentistry",r:"Стоматология"},{e:"Tooth decay",r:"Кариес"},{e:"To diagnose",r:"Диагностировать"},{e:"To prevent",r:"Предотвращать"},{e:"To estimate",r:"Оценивать"},{e:"Dentures",r:"Протезы"},{e:"To perform",r:"Выполнять"},{e:"Prosthodontics",r:"Протезирование"},{e:"Orthodontics",r:"Ортодонтия"},{e:"Conservation",r:"Пломбирование"},{e:"Oral surgery",r:"Хирургия"},{e:"To provide",r:"Предоставлять"},{e:"To involve",r:"Вовлекать"},{e:"To carry out",r:"Выполнять"},{e:"Molar (2)",r:"Моляр 2"},{e:"Pulp (2)",r:"Пульпа 2"},{e:"Socket (2)",r:"Ячейка 2"},{e:"Maintain (2)",r:"Поддерживать 2"},{e:"Tear (2)",r:"Разрывать 2"},{e:"Amount (2)",r:"Количество 2"},{e:"Tissues (2)",r:"Ткани 2"},{e:"Increase (2)",r:"Увеличивать 2"},{e:"Wear (2)",r:"Изнашивать 2"}
         ];
 
         const App = () => {
@@ -104,11 +117,11 @@
             useEffect(() => { if(activeTab === 'quiz' && quizHistory.length === 0) generateNewQuiz(); }, [activeTab, generateNewQuiz]);
 
             return (
-                <div className="flex flex-col h-full w-full max-w-md mx-auto">
-                    {/* Header */}
-                    <header className="px-6 pt-12 pb-2 apple-blur flex-none z-40">
+                <div className="app-wrapper">
+                    {/* Header Fixed */}
+                    <header className="px-6 pt-12 pb-3 bg-[#F2F2F7] z-50">
                         <div className="flex justify-between items-baseline mb-2">
-                            <h1 className="text-xl font-bold">Imed Study</h1>
+                            <h1 className="text-xl font-bold tracking-tight">Imed Study</h1>
                             <span className="text-sm font-bold text-blue-500">{learned.size}/144</span>
                         </div>
                         <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
@@ -116,10 +129,10 @@
                         </div>
                     </header>
 
-                    {/* Main Content Area */}
-                    <main className="flex-1 px-6 content-area">
+                    {/* Content Area */}
+                    <main className="content-scrollable px-6">
                         {activeTab === 'cards' && (
-                            <div className="flex flex-col h-full py-2 justify-around">
+                            <div className="flex flex-col space-y-8 pt-4">
                                 <div className="flex justify-center">
                                     <button onClick={() => setIsEngToRus(!isEngToRus)} className="text-[10px] font-bold px-4 py-2 bg-white rounded-full shadow-sm text-blue-600 border border-blue-50 tracking-widest uppercase">
                                         {isEngToRus ? 'ENG → RUS' : 'RUS → ENG'}
@@ -128,30 +141,30 @@
 
                                 <div className="card-container" onClick={() => setIsFlipped(!isFlipped)}>
                                     <div className={`card-inner ${isFlipped ? 'card-flipped' : ''}`}>
-                                        <div className="card-face card-face-front">
-                                            <p className="text-2xl font-bold leading-tight">{isEngToRus ? words[currentIndex].e : words[currentIndex].r}</p>
+                                        <div className="card-face card-front">
+                                            <p className="text-2xl font-bold">{isEngToRus ? words[currentIndex].e : words[currentIndex].r}</p>
                                         </div>
-                                        <div className="card-face card-face-back">
-                                            <p className="text-2xl font-bold text-blue-600 leading-tight">{isEngToRus ? words[currentIndex].r : words[currentIndex].e}</p>
+                                        <div className="card-face card-back">
+                                            <p className="text-2xl font-bold text-blue-600">{isEngToRus ? words[currentIndex].r : words[currentIndex].e}</p>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="flex justify-between items-center gap-4 px-2">
-                                    <button onClick={(e) => {e.stopPropagation(); changeCard((currentIndex - 1 + words.length) % words.length)}} className="w-12 h-12 flex items-center justify-center bg-white rounded-full shadow-sm active:bg-gray-100 flex-none"><i data-lucide="chevron-left"></i></button>
-                                    <button onClick={(e) => {e.stopPropagation(); setLearned(prev => new Set(prev).add(words[currentIndex].id)); changeCard((currentIndex + 1) % words.length)}} className="flex-1 h-14 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-100 active:scale-95 transition-transform uppercase text-sm tracking-widest">ЗНАЮ</button>
-                                    <button onClick={(e) => {e.stopPropagation(); changeCard((currentIndex + 1) % words.length)}} className="w-12 h-12 flex items-center justify-center bg-white rounded-full shadow-sm active:bg-gray-100 flex-none"><i data-lucide="chevron-right"></i></button>
+                                <div className="flex justify-between items-center gap-4">
+                                    <button onClick={() => changeCard((currentIndex - 1 + words.length) % words.length)} className="w-12 h-12 flex items-center justify-center bg-white rounded-full shadow-sm"><i data-lucide="chevron-left"></i></button>
+                                    <button onClick={() => { setLearned(prev => new Set(prev).add(words[currentIndex].id)); changeCard((currentIndex + 1) % words.length); }} className="flex-1 h-14 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-100 active:scale-95 transition-transform uppercase text-sm tracking-widest">ЗНАЮ</button>
+                                    <button onClick={() => changeCard((currentIndex + 1) % words.length)} className="w-12 h-12 flex items-center justify-center bg-white rounded-full shadow-sm"><i data-lucide="chevron-right"></i></button>
                                 </div>
                             </div>
                         )}
 
                         {activeTab === 'quiz' && quizIndex >= 0 && (
-                            <div className="flex flex-col h-full py-4 overflow-y-auto">
-                                <div className="bg-white p-6 rounded-2xl shadow-sm text-center mb-4">
+                            <div className="flex flex-col space-y-4 pt-4">
+                                <div className="bg-white p-6 rounded-2xl shadow-sm text-center">
                                     <p className="text-[10px] font-bold text-blue-400 uppercase mb-1">Вопрос {quizIndex + 1}</p>
                                     <p className="text-lg font-bold">{quizHistory[quizIndex].correct.e}</p>
                                 </div>
-                                <div className="space-y-3">
+                                <div className="space-y-2.5">
                                     {quizHistory[quizIndex].options.map((opt) => {
                                         const isCorrect = opt.id === quizHistory[quizIndex].correct.id;
                                         const isSelected = quizHistory[quizIndex].selected === opt.id;
@@ -176,19 +189,19 @@
                                         );
                                     })}
                                 </div>
-                                <div className="flex justify-between mt-6">
-                                    <button disabled={quizIndex === 0} onClick={() => setQuizIndex(quizIndex - 1)} className={`px-4 py-2 rounded-xl font-bold text-sm ${quizIndex === 0 ? 'text-gray-300' : 'text-blue-500 bg-white shadow-sm'}`}>Назад</button>
-                                    <button onClick={() => { if (quizIndex === quizHistory.length - 1) generateNewQuiz(); else setQuizIndex(quizIndex + 1); }} className="px-4 py-2 bg-blue-50 text-blue-500 rounded-xl font-bold text-sm shadow-sm">Далее</button>
+                                <div className="flex justify-between pt-2">
+                                    <button disabled={quizIndex === 0} onClick={() => setQuizIndex(quizIndex - 1)} className={`px-5 py-2.5 rounded-xl font-bold text-sm ${quizIndex === 0 ? 'text-gray-300' : 'text-blue-500 bg-white'}`}>Назад</button>
+                                    <button onClick={() => { if (quizIndex === quizHistory.length - 1) generateNewQuiz(); else setQuizIndex(quizIndex + 1); }} className="px-5 py-2.5 bg-blue-50 text-blue-500 rounded-xl font-bold text-sm">Далее</button>
                                 </div>
                             </div>
                         )}
 
                         {activeTab === 'list' && (
-                            <div className="py-2">
-                                <input type="text" placeholder="Поиск термина..." className="w-full p-4 rounded-xl bg-white mb-4 outline-none shadow-sm border border-gray-100" onChange={e => setSearch(e.target.value)} />
-                                <div className="space-y-2 pb-24">
+                            <div className="pt-4 flex flex-col space-y-4">
+                                <input type="text" placeholder="Поиск..." className="w-full p-4 rounded-xl bg-white outline-none shadow-sm border border-gray-100" onChange={e => setSearch(e.target.value)} />
+                                <div className="space-y-2">
                                     {words.filter(w => w.e.toLowerCase().includes(search.toLowerCase()) || w.r.toLowerCase().includes(search.toLowerCase())).map((w, index) => (
-                                        <div key={w.id} className="bg-white p-4 rounded-xl flex items-center justify-between shadow-sm border border-gray-50">
+                                        <div key={w.id} className="bg-white p-4 rounded-xl flex items-center justify-between shadow-sm">
                                             <div className="flex items-center space-x-3">
                                                 <span className="text-[10px] font-bold text-gray-300 w-5">{index + 1}</span>
                                                 <div><p className="font-bold text-sm leading-tight">{w.e}</p><p className="text-[11px] text-gray-500">{w.r}</p></div>
@@ -201,20 +214,22 @@
                         )}
                     </main>
 
-                    {/* Fixed Navigation Tab Bar */}
-                    <nav className="apple-blur tab-bar">
-                        <button onClick={() => setActiveTab('cards')} className={`flex flex-col items-center w-full transition-colors ${activeTab === 'cards' ? 'text-blue-500' : 'text-gray-400'}`}>
-                            <i data-lucide="layers" className="w-6 h-6"></i>
-                            <span className="text-[10px] font-bold mt-1 uppercase tracking-tighter">Карточки</span>
-                        </button>
-                        <button onClick={() => setActiveTab('quiz')} className={`flex flex-col items-center w-full transition-colors ${activeTab === 'quiz' ? 'text-blue-500' : 'text-gray-400'}`}>
-                            <i data-lucide="graduation-cap" className="w-6 h-6"></i>
-                            <span className="text-[10px] font-bold mt-1 uppercase tracking-tighter">Тест</span>
-                        </button>
-                        <button onClick={() => setActiveTab('list')} className={`flex flex-col items-center w-full transition-colors ${activeTab === 'list' ? 'text-blue-500' : 'text-gray-400'}`}>
-                            <i data-lucide="list" className="w-6 h-6"></i>
-                            <span className="text-[10px] font-bold mt-1 uppercase tracking-tighter">Список</span>
-                        </button>
+                    {/* Tab Bar Fixed */}
+                    <nav className="bottom-nav">
+                        <div className="flex justify-around items-center">
+                            <button onClick={() => setActiveTab('cards')} className={`flex flex-col items-center w-full ${activeTab === 'cards' ? 'text-blue-500' : 'text-gray-400'}`}>
+                                <i data-lucide="layers" className="w-6 h-6"></i>
+                                <span className="text-[10px] font-bold mt-1 uppercase tracking-tighter">Карточки</span>
+                            </button>
+                            <button onClick={() => setActiveTab('quiz')} className={`flex flex-col items-center w-full ${activeTab === 'quiz' ? 'text-blue-500' : 'text-gray-400'}`}>
+                                <i data-lucide="graduation-cap" className="w-6 h-6"></i>
+                                <span className="text-[10px] font-bold mt-1 uppercase tracking-tighter">Тест</span>
+                            </button>
+                            <button onClick={() => setActiveTab('list')} className={`flex flex-col items-center w-full ${activeTab === 'list' ? 'text-blue-500' : 'text-gray-400'}`}>
+                                <i data-lucide="list" className="w-6 h-6"></i>
+                                <span className="text-[10px] font-bold mt-1 uppercase tracking-tighter">Список</span>
+                            </button>
+                        </div>
                     </nav>
                 </div>
             );
